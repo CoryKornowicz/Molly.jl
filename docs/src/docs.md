@@ -596,7 +596,7 @@ The available simulators are:
 - [`VelocityVerlet`](@ref)
 - [`Verlet`](@ref)
 - [`StormerVerlet`](@ref)
-- [`Langevin`](@ref)
+- [`LangevinIntegrator`](@ref)
 
 To define your own simulator, first define a `struct`:
 ```julia

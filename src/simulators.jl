@@ -6,7 +6,7 @@ export
     VelocityVerlet,
     Verlet,
     StormerVerlet,
-    Langevin
+    LangevinIntegrator
 
 """
     SteepestDescentMinimizer(; <keyword arguments>)
@@ -260,7 +260,7 @@ function simulate!(sys,
 end
 
 """
-    Langevin(; <keyword arguments>)
+    LangevinIntegrator(; <keyword arguments>)
 
 The Langevin integrator, based on the Langevin Middle Integrator in OpenMM.
 This is a leapfrog integrator, so the velocities are offset by half a time step
@@ -273,7 +273,7 @@ behind the positions.
 - `remove_CM_motion::Bool=true`: whether to remove the centre of mass motion
     every time step.
 """
-struct Langevin{S, K, F, T}
+struct LangevinIntegrator{S, K, F, T}
     dt::S
     temperature::K
     friction::F
@@ -282,14 +282,14 @@ struct Langevin{S, K, F, T}
     noise_scale::T
 end
 
-function Langevin(; dt, temperature, friction, remove_CM_motion=true)
+function LangevinIntegrator(; dt, temperature, friction, remove_CM_motion=true)
     vel_scale = exp(-dt * friction)
     noise_scale = sqrt(1 - vel_scale^2)
-    return Langevin(dt, temperature, friction, remove_CM_motion, vel_scale, noise_scale)
+    return LangevinIntegrator(dt, temperature, friction, remove_CM_motion, vel_scale, noise_scale)
 end
 
 function simulate!(sys,
-                    sim::Langevin,
+                    sim::LangevinIntegrator,
                     n_steps::Integer;
                     parallel::Bool=true,
                     rng=Random.GLOBAL_RNG)
