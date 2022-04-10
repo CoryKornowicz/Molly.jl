@@ -3,9 +3,9 @@
 export
     SteepestDescentMinimizer,
     simulate!,
-    VelocityVerlet,
-    Verlet,
-    StormerVerlet,
+    VelocityVerletIntegrator,
+    VerletIntegrator,
+    StormerVerletIntegrator,
     LangevinIntegrator
 
 """
@@ -102,7 +102,7 @@ function remove_molar(x)
 end
 
 """
-    VelocityVerlet(; <keyword arguments>)
+    VelocityVerletIntegrator(; <keyword arguments>)
 
 The velocity Verlet integrator.
 
@@ -112,18 +112,18 @@ The velocity Verlet integrator.
 - `remove_CM_motion::Bool=true`: whether to remove the centre of mass motion
     every time step.
 """
-struct VelocityVerlet{T, C}
+struct VelocityVerletIntegrator{T, C}
     dt::T
     coupling::C
     remove_CM_motion::Bool
 end
 
-function VelocityVerlet(; dt, coupling=NoCoupling(), remove_CM_motion=true)
-    return VelocityVerlet(dt, coupling, remove_CM_motion)
+function VelocityVerletIntegrator(; dt, coupling=NoCoupling(), remove_CM_motion=true)
+    return VelocityVerletIntegrator(dt, coupling, remove_CM_motion)
 end
 
 function simulate!(sys,
-                    sim::VelocityVerlet,
+                    sim::VelocityVerletIntegrator,
                     n_steps::Integer;
                     parallel::Bool=true)
     neighbors = find_neighbors(sys, sys.neighbor_finder; parallel=parallel)
@@ -155,7 +155,7 @@ function simulate!(sys,
 end
 
 """
-    Verlet(; <keyword arguments>)
+    VerletIntegrator(; <keyword arguments>)
 
 The leapfrog Verlet integrator.
 This is a leapfrog integrator, so the velocities are offset by half a time step
@@ -167,18 +167,18 @@ behind the positions.
 - `remove_CM_motion::Bool=true`: whether to remove the centre of mass motion
     every time step.
 """
-struct Verlet{T, C}
+struct VerletIntegrator{T, C}
     dt::T
     coupling::C
     remove_CM_motion::Bool
 end
 
-function Verlet(; dt, coupling=NoCoupling(), remove_CM_motion=true)
-    return Verlet(dt, coupling, remove_CM_motion)
+function VerletIntegrator(; dt, coupling=NoCoupling(), remove_CM_motion=true)
+    return VerletIntegrator(dt, coupling, remove_CM_motion)
 end
 
 function simulate!(sys,
-                    sim::Verlet,
+                    sim::VerletIntegrator,
                     n_steps::Integer;
                     parallel::Bool=true)
     neighbors = find_neighbors(sys, sys.neighbor_finder; parallel=parallel)
@@ -207,7 +207,7 @@ function simulate!(sys,
 end
 
 """
-    StormerVerlet(; <keyword arguments>)
+    StormerVerletIntegrator(; <keyword arguments>)
 
 The Störmer-Verlet integrator.
 Does not currently work with coupling methods that alter the velocity.
@@ -216,15 +216,15 @@ Does not currently work with coupling methods that alter the velocity.
 - `dt::T`: the time step of the simulation.
 - `coupling::C=NoCoupling()`: the coupling which applies during the simulation.
 """
-struct StormerVerlet{T, C}
+struct StormerVerletIntegrator{T, C}
     dt::T
     coupling::C
 end
 
-StormerVerlet(; dt, coupling=NoCoupling()) = StormerVerlet(dt, coupling)
+StormerVerletIntegrator(; dt, coupling=NoCoupling()) = StormerVerletIntegrator(dt, coupling)
 
 function simulate!(sys,
-                    sim::StormerVerlet,
+                    sim::StormerVerletIntegrator,
                     n_steps::Integer;
                     parallel::Bool=true)
     neighbors = find_neighbors(sys, sys.neighbor_finder; parallel=parallel)

@@ -54,7 +54,7 @@ sys = System(
     ),
 )
 
-simulator = VelocityVerlet(dt=0.002u"ps", coupling=AndersenThermostat(temp, 1.0u"ps"))
+simulator = VelocityVerletIntegrator(dt=0.002u"ps", coupling=AndersenThermostat(temp, 1.0u"ps"))
 simulate!(sys, simulator, 1_000)
 ```
 By default the simulation is run in parallel on the [number of threads](https://docs.julialang.org/en/v1/manual/parallel-computing/#man-multithreading-1) available to Julia, but this can be turned off by giving the keyword argument `parallel=false` to [`simulate!`](@ref).
@@ -81,7 +81,7 @@ temp = 100.0f0u"K"
 atoms = cu([Atom(mass=atom_mass, σ=0.3f0u"nm", ϵ=0.2f0u"kJ * mol^-1") for i in 1:n_atoms])
 coords = cu(place_atoms(n_atoms, box_size, 0.3u"nm"))
 velocities = cu([velocity(atom_mass, temp) for i in 1:n_atoms])
-simulator = VelocityVerlet(dt=0.002f0u"ps")
+simulator = VelocityVerletIntegrator(dt=0.002f0u"ps")
 
 sys = System(
     atoms=atoms,
@@ -154,7 +154,7 @@ sys = System(
     ),
 )
 
-simulator = VelocityVerlet(
+simulator = VelocityVerletIntegrator(
     dt=0.002u"ps",
     coupling=AndersenThermostat(temp, 1.0u"ps"),
 )
@@ -181,7 +181,7 @@ atoms = [Atom(mass=1.0f0), Atom(mass=1.0f0)]
 coords = [SVector(0.3f0, 0.5f0), SVector(0.7f0, 0.5f0)]
 velocities = [SVector(0.0f0, 1.0f0), SVector(0.0f0, -1.0f0)]
 pairwise_inters = (Gravity(nl_only=false, G=1.5f0),)
-simulator = VelocityVerlet(dt=0.002f0)
+simulator = VelocityVerletIntegrator(dt=0.002f0)
 box_size = SVector(1.0f0, 1.0f0)
 
 sys = System(
@@ -229,7 +229,7 @@ sys = System(
 )
 
 random_velocities!(sys, 298.0u"K")
-simulator = VelocityVerlet(dt=0.0005u"ps")
+simulator = VelocityVerletIntegrator(dt=0.0005u"ps")
 
 simulate!(sys, simulator, 5_000; parallel=true)
 ```
@@ -250,7 +250,7 @@ sys = System(
 
 temp = 298.0u"K"
 random_velocities!(sys, temp)
-simulator = VelocityVerlet(dt=0.0002u"ps", coupling=AndersenThermostat(temp, 1.0u"ps"))
+simulator = VelocityVerletIntegrator(dt=0.0002u"ps", coupling=AndersenThermostat(temp, 1.0u"ps"))
 
 simulate!(sys, simulator, 5_000)
 ```
@@ -338,7 +338,7 @@ coords = place_atoms(n_people, box_size, 0.1)
 velocities = [velocity(1.0, temp; dims=2) for i in 1:n_people]
 pairwise_inters = (LennardJones=LennardJones(nl_only=true), SIR=SIRInteraction(false, 0.5, 0.06, 0.01))
 neighbor_finder = DistanceNeighborFinder(nb_matrix=trues(n_people, n_people), n_steps=10, dist_cutoff=2.0)
-simulator = VelocityVerlet(dt=0.02, coupling=AndersenThermostat(temp, 5.0))
+simulator = VelocityVerletIntegrator(dt=0.02, coupling=AndersenThermostat(temp, 5.0))
 
 sys = System(
     atoms=atoms,
@@ -593,9 +593,9 @@ Simulators define what type of simulation is run.
 This could be anything from a simple energy minimization to complicated replica exchange MD.
 The available simulators are:
 - [`SteepestDescentMinimizer`](@ref)
-- [`VelocityVerlet`](@ref)
-- [`Verlet`](@ref)
-- [`StormerVerlet`](@ref)
+- [`VelocityVerletIntegrator`](@ref)
+- [`VerletIntegrator`](@ref)
+- [`StormerVerletIntegrator`](@ref)
 - [`LangevinIntegrator`](@ref)
 
 To define your own simulator, first define a `struct`:

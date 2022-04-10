@@ -98,7 +98,7 @@ neighbor_finder = DistanceNeighborFinder(
     n_steps=10,
     dist_cutoff=2.0,
 )
-simulator = VelocityVerlet(dt=0.02, coupling=AndersenThermostat(temp, 5.0))
+simulator = VelocityVerletIntegrator(dt=0.02, coupling=AndersenThermostat(temp, 5.0))
 
 sys = System(
     atoms=atoms,

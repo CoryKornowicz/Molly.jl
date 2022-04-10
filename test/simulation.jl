@@ -3,7 +3,10 @@
     n_steps = 20_000
     temp = 298.0u"K"
     box_size = SVector(2.0, 2.0)u"nm"
-    simulator = VelocityVerlet(dt=0.002u"ps", coupling=AndersenThermostat(temp, 10.0u"ps"))
+    simulator = VelocityVerletIntegrator(
+        dt=0.002u"ps",
+        coupling=AndersenThermostat(temp, 10.0u"ps"),
+    )
 
     s = System(
         atoms=[Atom(charge=0.0, mass=10.0u"u", σ=0.3u"nm", ϵ=0.2u"kJ * mol^-1") for i in 1:n_atoms],
@@ -36,7 +39,10 @@ end
     n_steps = 20_000
     temp = 298.0u"K"
     box_size = SVector(2.0, 2.0, 2.0)u"nm"
-    simulator = VelocityVerlet(dt=0.002u"ps", coupling=AndersenThermostat(temp, 10.0u"ps"))
+    simulator = VelocityVerletIntegrator(
+        dt=0.002u"ps",
+        coupling=AndersenThermostat(temp, 10.0u"ps"),
+    )
     parallel_list = run_parallel_tests ? (false, true) : (false,)
 
     for parallel in parallel_list
@@ -87,8 +93,8 @@ end
     box_size = SVector(2.0, 2.0, 2.0)u"nm"
     coords = place_atoms(n_atoms, box_size, 0.3u"nm")
     simulators = [
-        Verlet(dt=0.002u"ps", coupling=AndersenThermostat(temp, 10.0u"ps")),
-        StormerVerlet(dt=0.002u"ps"),
+        VerletIntegrator(dt=0.002u"ps", coupling=AndersenThermostat(temp, 10.0u"ps")),
+        StormerVerletIntegrator(dt=0.002u"ps"),
         LangevinIntegrator(dt=0.002u"ps", temperature=temp, friction=1.0u"ps^-1"),
     ]
 
@@ -127,7 +133,10 @@ end
         nb_matrix[i, i + (n_atoms ÷ 2)] = false
         nb_matrix[i + (n_atoms ÷ 2), i] = false
     end
-    simulator = VelocityVerlet(dt=0.002u"ps", coupling=AndersenThermostat(temp, 10.0u"ps"))
+    simulator = VelocityVerletIntegrator(
+        dt=0.002u"ps",
+        coupling=AndersenThermostat(temp, 10.0u"ps"),
+    )
 
     s = System(
         atoms=[Atom(charge=0.0, mass=10.0u"u", σ=0.3u"nm", ϵ=0.2u"kJ * mol^-1") for i in 1:n_atoms],
@@ -156,7 +165,10 @@ end
     temp = 298.0u"K"
     box_size = SVector(2.0, 2.0, 2.0)u"nm"
     G = 10.0u"kJ * nm * u^-2 * mol^-1"
-    simulator = VelocityVerlet(dt=0.002u"ps", coupling=AndersenThermostat(temp, 10.0u"ps"))
+    simulator = VelocityVerletIntegrator(
+        dt=0.002u"ps",
+        coupling=AndersenThermostat(temp, 10.0u"ps"),
+    )
     pairwise_inter_types = (
         LennardJones(nl_only=true), LennardJones(nl_only=false),
         LennardJones(cutoff=DistanceCutoff(1.0u"nm"), nl_only=true),
@@ -203,8 +215,8 @@ end
     box_size = SVector(2.0, 2.0, 2.0)u"nm"
     coords = place_atoms(n_atoms, box_size, 0.3u"nm")
     velocities = [velocity(10.0u"u", temp) .* 0.01 for i in 1:n_atoms]
-    simulator = VelocityVerlet(dt=0.002u"ps")
-    simulator_nounits = VelocityVerlet(dt=0.002)
+    simulator = VelocityVerletIntegrator(dt=0.002u"ps")
+    simulator_nounits = VelocityVerletIntegrator(dt=0.002)
 
     s = System(
         atoms=[Atom(charge=0.0, mass=10.0u"u", σ=0.3u"nm", ϵ=0.2u"kJ * mol^-1") for i in 1:n_atoms],
@@ -263,7 +275,7 @@ end
         n_steps = 200
         atom_mass = f32 ? 10.0f0u"u" : 10.0u"u"
         box_size = f32 ? SVector(6.0f0, 6.0f0, 6.0f0)u"nm" : SVector(6.0, 6.0, 6.0)u"nm"
-        simulator = VelocityVerlet(dt=f32 ? 0.02f0u"ps" : 0.02u"ps")
+        simulator = VelocityVerletIntegrator(dt=f32 ? 0.02f0u"ps" : 0.02u"ps")
         b0 = f32 ? 0.2f0u"nm" : 0.2u"nm"
         kb = f32 ? 10_000.0f0u"kJ * mol^-1 * nm^-2" : 10_000.0u"kJ * mol^-1 * nm^-2"
         bonds = [HarmonicBond(b0=b0, kb=kb) for i in 1:(n_atoms ÷ 2)]

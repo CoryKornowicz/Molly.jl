@@ -66,7 +66,7 @@ crf = CoulombReactionField(dist_cutoff=1.5, nl_only=true, coulomb_const=0.0,
 pairwise_inters = (lj, crf)
 coords = place_atoms(n_atoms, box_size, 0.7)
 velocities = [velocity(atom_mass, temp) for i in 1:n_atoms]
-simulator = VelocityVerlet(
+simulator = VelocityVerletIntegrator(
     dt=0.02,
     coupling=RescaleThermostat(temp),
 )
@@ -176,7 +176,7 @@ coords = [
 ]
 n_atoms = length(coords)
 velocities = zero(coords)
-simulator = VelocityVerlet(
+simulator = VelocityVerletIntegrator(
     dt=0.05,
     coupling=BerendsenThermostat(temp, 0.5),
 )
@@ -314,7 +314,7 @@ temp = 0.01f0
 coords = [SVector(2.3f0, 2.07f0, 0.0f0), SVector(2.5f0, 2.93f0, 0.0f0), SVector(2.7f0, 2.07f0, 0.0f0)]
 n_atoms = length(coords)
 velocities = zero(coords)
-simulator = VelocityVerlet(dt=0.02f0, coupling=BerendsenThermostat(temp, 0.5f0))
+simulator = VelocityVerletIntegrator(dt=0.02f0, coupling=BerendsenThermostat(temp, 0.5f0))
 
 function loss()
     atoms = [Atom(0, 0.0f0, mass, 0.0f0, 0.0f0, false) for i in 1:n_atoms]

@@ -11,7 +11,10 @@
             "writer" => StructureWriter(10, temp_fp_pdb),
         ),
     )
-    simulator = VelocityVerlet(dt=0.0002u"ps", coupling=AndersenThermostat(temp, 10.0u"ps"))
+    simulator = VelocityVerletIntegrator(
+        dt=0.0002u"ps",
+        coupling=AndersenThermostat(temp, 10.0u"ps"),
+    )
 
     true_n_atoms = 5191
     @test length(s.atoms) == true_n_atoms
@@ -45,7 +48,10 @@ end
             "energy" => TotalEnergyLogger(typeof(1.0f0u"kJ * mol^-1"), 10),
         ),
     )
-    simulator = VelocityVerlet(dt=0.0002f0u"ps", coupling=AndersenThermostat(temp, 10.0f0u"ps"))
+    simulator = VelocityVerletIntegrator(
+        dt=0.0002f0u"ps",
+        coupling=AndersenThermostat(temp, 10.0f0u"ps"),
+    )
 
     s.velocities = [velocity(a.mass, Float32(temp)) .* 0.01f0 for a in s.atoms]
     @time simulate!(s, simulator, n_steps; parallel=false)
@@ -105,7 +111,7 @@ end
 
     # Run a short simulation with all interactions
     n_steps = 100
-    simulator = VelocityVerlet(dt=0.0005u"ps")
+    simulator = VelocityVerletIntegrator(dt=0.0005u"ps")
     velocities_start = SVector{3}.(eachrow(readdlm(joinpath(openmm_dir, "velocities_300K.txt"))))u"nm * ps^-1"
     sys.velocities = deepcopy(velocities_start)
     @test kinetic_energy(sys) ≈ 65521.87288132431u"kJ * mol^-1"
@@ -134,7 +140,7 @@ end
         units=false,
         centre_coords=false,
     )
-    simulator_nounits = VelocityVerlet(dt=0.0005)
+    simulator_nounits = VelocityVerletIntegrator(dt=0.0005)
     @test kinetic_energy(sys_nounits)u"kJ * mol^-1" ≈ 65521.87288132431u"kJ * mol^-1"
     @test temperature(sys_nounits)u"K" ≈ 329.3202932884933u"K"
 

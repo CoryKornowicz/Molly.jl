@@ -66,7 +66,7 @@ function test_sim(nl::Bool, parallel::Bool, gpu_diff_safe::Bool, f32::Bool, gpu:
     n_steps = 200
     atom_mass = f32 ? 10.0f0u"u" : 10.0u"u"
     box_size = f32 ? SVector(6.0f0, 6.0f0, 6.0f0)u"nm" : SVector(6.0, 6.0, 6.0)u"nm"
-    simulator = VelocityVerlet(dt=f32 ? 0.02f0u"ps" : 0.02u"ps")
+    simulator = VelocityVerletIntegrator(dt=f32 ? 0.02f0u"ps" : 0.02u"ps")
     b0 = f32 ? 0.2f0u"nm" : 0.2u"nm"
     kb = f32 ? 10_000.0f0u"kJ * mol^-1 * nm^-2" : 10_000.0u"kJ * mol^-1 * nm^-2"
     bonds = [HarmonicBond(b0=b0, kb=kb) for i in 1:(n_atoms ÷ 2)]
@@ -145,7 +145,7 @@ openmm_dir = joinpath(data_dir, "openmm_6mrr")
 ff = OpenMMForceField(joinpath.(ff_dir, ["ff99SBildn.xml", "tip3p_standard.xml", "his.xml"])...)
 velocities = SVector{3}.(eachrow(readdlm(joinpath(openmm_dir, "velocities_300K.txt"))))u"nm * ps^-1"
 s = System(joinpath(data_dir, "6mrr_equil.pdb"), ff; velocities=velocities)
-simulator = VelocityVerlet(dt=0.0005u"ps")
+simulator = VelocityVerletIntegrator(dt=0.0005u"ps")
 n_steps = 25
 
 simulate!(s, simulator, n_steps; parallel=true)

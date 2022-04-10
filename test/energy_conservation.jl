@@ -10,7 +10,7 @@ using Test
     box_size = SVector(50.0, 50.0, 50.0)u"nm"
     n_atoms = 2_000
     atom_mass = 40.0u"u"
-    simulator = VelocityVerlet(dt=0.005u"ps")
+    simulator = VelocityVerletIntegrator(dt=0.005u"ps")
 
     parallel_list = nthreads() > 1 ? (false, true) : (false,)
     lj_potentials = (

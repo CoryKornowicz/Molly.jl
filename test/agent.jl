@@ -69,7 +69,7 @@
     velocities = [velocity(1.0, temp; dims=2) for i in 1:n_people]
     pairwise_inters = (LennardJones=LennardJones(nl_only=true), SIR=SIRInteraction(false, 0.5, 0.06, 0.01))
     neighbor_finder = DistanceNeighborFinder(nb_matrix=trues(n_people, n_people), n_steps=10, dist_cutoff=2.0)
-    simulator = VelocityVerlet(dt=0.02, coupling=AndersenThermostat(temp, 5.0))
+    simulator = VelocityVerletIntegrator(dt=0.02, coupling=AndersenThermostat(temp, 5.0))
 
     s = System(
         atoms=atoms,

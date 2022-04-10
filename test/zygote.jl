@@ -46,7 +46,7 @@
         atom_mass = f32 ? 10.0f0 : 10.0
         box_size = f32 ? SVector(3.0f0, 3.0f0, 3.0f0) : SVector(3.0, 3.0, 3.0)
         temp = f32 ? 1.0f0 : 1.0
-        simulator = VelocityVerlet(
+        simulator = VelocityVerletIntegrator(
             dt=f32 ? 0.001f0 : 0.001,
             coupling=RescaleThermostat(temp),
         )
