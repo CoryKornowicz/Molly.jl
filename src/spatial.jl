@@ -20,9 +20,10 @@ export
 
 """
     CubicBoundary(x, y, z)
-    CubicBoundary(arr)
+    CubicBoundary(x)
 
 Cubic 3D bounding box defined by 3 side lengths.
+If one length is given then all sides will have that length.
 Setting one or more values to `Inf` gives no boundary in that dimension.
 """
 struct CubicBoundary{T}
@@ -30,7 +31,7 @@ struct CubicBoundary{T}
 end
 
 CubicBoundary(x, y, z) = CubicBoundary(SVector{3}(x, y, z))
-CubicBoundary(arr) = CubicBoundary(SVector{3}(arr))
+CubicBoundary(x::Number) = CubicBoundary(SVector{3}(x, x, x))
 
 Base.getindex(b::CubicBoundary, i::Integer) = b.side_lengths[i]
 Base.firstindex(b::CubicBoundary) = b.side_lengths[1]
@@ -38,9 +39,10 @@ Base.lastindex(b::CubicBoundary) = b.side_lengths[3]
 
 """
     RectangularBoundary(x, y)
-    RectangularBoundary(arr)
+    RectangularBoundary(x)
 
 Rectangular 2D bounding box defined by 2 side lengths.
+If one length is given then all sides will have that length.
 Setting one or more values to `Inf` gives no boundary in that dimension.
 """
 struct RectangularBoundary{T}
@@ -48,7 +50,7 @@ struct RectangularBoundary{T}
 end
 
 RectangularBoundary(x, y) = RectangularBoundary(SVector{2}(x, y))
-RectangularBoundary(arr) = RectangularBoundary(SVector{2}(arr))
+RectangularBoundary(x::Number) = RectangularBoundary(SVector{2}(x, x))
 
 Base.getindex(b::RectangularBoundary, i::Integer) = b.side_lengths[i]
 Base.firstindex(b::RectangularBoundary) = b.side_lengths[1]

@@ -55,7 +55,7 @@ scale_σ_to_dist = 2 ^ (1 / 6)
 n_atoms = 50
 n_steps = 500
 atom_mass = 10.0
-boundary = CubicBoundary(3.0, 3.0, 3.0)
+boundary = CubicBoundary(3.0)
 temp = 1.0
 neighbor_finder = DistanceVecNeighborFinder(
     nb_matrix=trues(n_atoms, n_atoms),
@@ -171,7 +171,7 @@ dist_true = 1.0
 
 n_steps = 150
 atom_mass = 10.0
-boundary = CubicBoundary(3.0, 3.0, 3.0)
+boundary = CubicBoundary(3.0)
 temp = 0.05
 coords = [
     SVector(0.8, 0.75, 1.5), SVector(1.5, 0.70, 1.5), SVector(2.3, 0.75, 1.5),
@@ -191,14 +191,12 @@ function loss(θ)
         InteractionList2Atoms(
             [1, 2, 4, 5],
             [2, 3, 5, 6],
-            ["", "", "", ""],
             [HarmonicBond(100.0, 0.7) for _ in 1:4],
         ),
         InteractionList3Atoms(
             [1, 4],
             [2, 5],
             [3, 6],
-            ["", ""],
             [HarmonicAngle(10.0, θ), HarmonicAngle(10.0, θ)],
         ),
     )
@@ -311,7 +309,7 @@ end
 
 n_steps = 400
 mass = 10.0f0
-boundary = CubicBoundary(5.0f0, 5.0f0, 5.0f0)
+boundary = CubicBoundary(5.0f0)
 temp = 0.01f0
 coords = [
     SVector(2.3f0, 2.07f0, 0.0f0),
@@ -329,7 +327,7 @@ function loss()
     atoms = [Atom(0, 0.0f0, mass, 0.0f0, 0.0f0, false) for i in 1:n_atoms]
     loggers = (coords=CoordinateLogger(Float32, 10),)
     specific_inter_lists = (
-        InteractionList2Atoms([1], [3], [""], [NNBond()]),
+        InteractionList2Atoms([1], [3], [NNBond()]),
     )
 
     s = System(

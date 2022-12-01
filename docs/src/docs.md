@@ -26,7 +26,7 @@ Molly re-exports Unitful.jl, [StaticArrays.jl](https://github.com/JuliaArrays/St
 You can use your own atom types in Molly, provided that the [`mass`](@ref) function is defined and any fields required by the interactions are present.
 Next, we'll need some starting coordinates and velocities.
 ```julia
-boundary = CubicBoundary(2.0u"nm", 2.0u"nm", 2.0u"nm") # Periodic boundary conditions
+boundary = CubicBoundary(2.0u"nm") # Periodic boundary conditions with a 2 nm cube
 coords = place_atoms(n_atoms, boundary; min_dist=0.3u"nm") # Random placement without clashing
 
 temp = 100.0u"K"
@@ -95,7 +95,7 @@ using CUDA
 
 n_atoms = 100
 atom_mass = 10.0f0u"u"
-boundary = CubicBoundary(2.0f0u"nm", 2.0f0u"nm", 2.0f0u"nm")
+boundary = CubicBoundary(2.0f0u"nm")
 temp = 100.0f0u"K"
 atoms = CuArray([Atom(mass=atom_mass, σ=0.3f0u"nm", ϵ=0.2f0u"kJ * mol^-1") for i in 1:n_atoms])
 coords = CuArray(place_atoms(n_atoms, boundary; min_dist=0.3u"nm"))
@@ -135,7 +135,6 @@ Now we can use the built-in interaction list and bond types to place harmonic bo
 bonds = InteractionList2Atoms(
     collect(1:(n_atoms ÷ 2)),           # First atom indices
     collect((1 + n_atoms ÷ 2):n_atoms), # Second atom indices
-    repeat([""], n_atoms ÷ 2),          # Bond types
     [HarmonicBond(k=300_000.0u"kJ * mol^-1 * nm^-2", r0=0.1u"nm") for i in 1:(n_atoms ÷ 2)],
 )
 
@@ -205,7 +204,7 @@ coords = [SVector(0.3f0, 0.5f0), SVector(0.7f0, 0.5f0)]
 velocities = [SVector(0.0f0, 1.0f0), SVector(0.0f0, -1.0f0)]
 pairwise_inters = (Gravity(nl_only=false, G=1.5f0),)
 simulator = VelocityVerlet(dt=0.002f0)
-boundary = RectangularBoundary(1.0f0, 1.0f0)
+boundary = RectangularBoundary(1.0f0)
 
 sys = System(
     atoms=atoms,
@@ -367,6 +366,52 @@ end
 # 357.710520769689 K
 ```
 
+## Monte-Carlo sampling
+
+Molly has the [`MetropolisMonteCarlo`](@ref) simulator to carry out Monte-Carlo sampling with Metropolis selection rates.
+For example to perform simulated annealing on charged particles to form a crystal lattice:
+```julia
+n_atoms = 100
+atom_mass = 10.0u"u"
+atom_charge = 1.0u"e"
+
+atoms = [Atom(mass=atom_mass, charge=atom_charge, σ=0.3u"nm", ϵ=0.2u"kJ * mol^-1") for i in 1:n_atoms]
+boundary = RectangularBoundary(4.0u"nm", 4.0u"nm")
+
+coords = place_atoms(n_atoms, boundary; min_dist=0.2u"nm")
+
+pairwise_inters = (Coulomb(),)
+
+temp_vals = [1198.0, 798.0, 398.0, 198.0, 98.0, 8.0]u"K"
+sys = System(
+    atoms=atoms,
+    pairwise_inters=pairwise_inters,
+    coords=coords,
+    boundary=boundary,
+    loggers=(
+        coords=CoordinateLogger(n_atoms, dims=n_dimensions(boundary)),
+        mclogger=MonteCarloLogger(),
+    ),
+)
+
+trial_args = Dict(:shift_size => 0.1u"nm")
+for t in temp_vals
+    sim = MetropolisMonteCarlo(; 
+            temperature=t,
+            trial_moves=random_uniform_translation!,
+            trial_args=trial_args,
+        )
+    
+    simulate!(sys, sim, 10_000)
+end
+
+visualize(sys.loggers.coords, boundary, "sim_annealing_montecarlo.gif")
+```
+![Monte-Carlo Simulated Annealing](images/sim_annealing_montecarlo.gif)
+`trial_moves` should be a function that takes a [`System`](@ref) as its argument and optional keyword arguments `trial_args`.
+It should modify the coordinates as appropriate, accounting for any boundary conditions.
+[`random_uniform_translation!`](@ref) and [`random_normal_translation!`](@ref) are provided as common trial move functions.
+
 ## Agent-based modelling
 
 Agent-based modelling (ABM) is conceptually similar to molecular dynamics.
@@ -433,7 +478,7 @@ end
 SIRLogger(n_steps) = GeneralObservableLogger(fracs_SIR, Vector{Float64}, n_steps)
 
 temp = 1.0
-boundary = RectangularBoundary(10.0, 10.0)
+boundary = RectangularBoundary(10.0)
 n_steps = 1_000
 n_people = 500
 n_starting = 2
@@ -633,7 +678,6 @@ specific_inter_lists = (
     InteractionList2Atoms(
         [1, 3],
         [2, 4],
-        ["", ""],
         [MySpecificInter(), MySpecificInter()],
     ),
 )
@@ -654,7 +698,7 @@ end
 ```
 Next, you need to define the [`forces`](@ref) function (note this is different to the [`force`](@ref) function above).
 ```julia
-function Molly.forces(inter::MyGeneralInter, sys, neighbors=nothing)
+function Molly.forces(inter::MyGeneralInter, sys, neighbors=nothing; n_threads=Threads.nthreads())
     # Calculate the forces on all atoms using the interaction and the system
     # The output should have the same shape as the coordinates
     # For example, a neural network might do something like this
@@ -762,12 +806,15 @@ The available 2D boundaries are:
 
 Some examples of using boundaries:
 ```julia
+CubicBoundary(2.0u"nm"                             ) # Periodic cube with 2 nm sides
 CubicBoundary(2.0u"nm"   , 2.0u"nm"   , 2.0u"nm"   ) # Periodic cube with 2 nm sides
 CubicBoundary(4.0u"nm"   , 5.0u"nm"   , 6.0u"nm"   ) # Periodic cuboid
 CubicBoundary(2.0u"nm"   , 2.0u"nm"   , Inf * u"nm") # Infinite boundary in z direction
 CubicBoundary(Inf * u"nm", Inf * u"nm", Inf * u"nm") # Infinite boundary, no periodicity
+CubicBoundary(Inf * u"nm"                          ) # Infinite boundary, no periodicity
 
-RectangularBoundary(4.0u"nm", 5.0u"nm"   ) # Rectangle
+RectangularBoundary(2.0u"nm"             ) # Periodic square
+RectangularBoundary(4.0u"nm", 5.0u"nm"   ) # Periodic rectangle
 RectangularBoundary(2.0u"nm", Inf * u"nm") # Infinite boundary in y direction
 
 # Periodic triclinic from basis vectors
@@ -811,6 +858,7 @@ The available simulators are:
 - [`LangevinSplitting`](@ref)
 - [`TemperatureREMD`](@ref)
 - [`HamiltonianREMD`](@ref)
+- [`MetropolisMonteCarlo`](@ref)
 
 The [`LangevinSplitting`](@ref) simulator can be used to define a variety of integrators such as velocity Verlet (splitting `"BAB"`), the Langevin implementation in [`Langevin`](@ref) (`"BAOA"`), and symplectic Euler integrators (`"AB"` and `"BA"`).
 
@@ -1011,6 +1059,7 @@ The available loggers are:
 - [`AutoCorrelationLogger`](@ref)
 - [`AverageObservableLogger`](@ref)
 - [`ReplicaExchangeLogger`](@ref)
+- [`MonteCarloLogger`](@ref)
 
 Many of the loggers can be initialised with just the number of steps between recorded values, e.g. `CoordinateLogger(10)`.
 An optional first argument is the type of the recorded value; the above is equivalent to `CoordinateLogger(typeof(1.0u"nm"), 10)` but if the simulation did not use units then `CoordinateLogger(Float64, 10)` would be required.
@@ -1025,7 +1074,7 @@ end
 ```
 Then, define the logging function that is called every step by the simulator:
 ```julia
-function Molly.log_property!(logger::MyLogger, sys, neighbors, step_n; n_threads=Threads.nthreads())
+function Molly.log_property!(logger::MyLogger, sys, neighbors, step_n; n_threads=Threads.nthreads(), kwargs...)
     if step_n % logger.n_steps == 0
         # Record some property or carry out some action
     end
@@ -1071,7 +1120,7 @@ atom_mass = 10.0u"u"
 atoms = [Atom(mass=atom_mass, σ=0.2u"nm", ϵ=0.2u"kJ * mol^-1") for i in 1:n_atoms]
 
 # Initialization
-boundary = SVector(6.0, 6.0, 6.0)u"nm"
+boundary = CubicBoundary(6.0u"nm")
 coords = place_diatomics(n_atoms ÷ 2, boundary, 0.2u"nm"; min_dist=0.2u"nm")
 
 temp = 50.0u"K"
@@ -1084,7 +1133,6 @@ bonds = [HarmonicBond(k=10000u"kJ * mol^-1 * nm^-2", r0=0.2u"nm") for i in 1:(n_
 specific_inter_lists = (InteractionList2Atoms(
     collect(1:2:n_atoms),
     collect(2:2:n_atoms),
-    repeat([""], length(bonds)),
     bonds,
 ),)
 

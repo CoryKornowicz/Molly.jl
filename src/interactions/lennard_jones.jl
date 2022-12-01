@@ -79,7 +79,7 @@ end
                                     weight_14::Bool=false) where {S, C}
     r2 = sum(abs2, dr)
 
-    if !S && (iszero(atom_i.ϵ) || iszero(atom_j.ϵ) || iszero(atom_i.σ) || iszero(atom_j.σ))
+    if !S && (iszero_value(atom_i.ϵ) || iszero_value(atom_j.ϵ) || iszero_value(atom_i.σ) || iszero_value(atom_j.σ))
         return ustrip.(zero(coord_i)) * inter.force_units
     end
 
@@ -119,7 +119,7 @@ end
     end
 end
 
-@fastmath function force_divr_nocutoff(::LennardJones, r2, invr2, (σ2, ϵ))
+function force_divr_nocutoff(::LennardJones, r2, invr2, (σ2, ϵ))
     six_term = (σ2 * invr2) ^ 3
 
     return (24ϵ * invr2) * (2 * six_term ^ 2 - six_term)
@@ -135,7 +135,7 @@ end
                                             weight_14::Bool=false) where {S, C}
     r2 = sum(abs2, dr)
 
-    if !S && (iszero(atom_i.ϵ) || iszero(atom_j.ϵ) || iszero(atom_i.σ) || iszero(atom_j.σ))
+    if !S && (iszero_value(atom_i.ϵ) || iszero_value(atom_j.ϵ) || iszero_value(atom_i.σ) || iszero_value(atom_j.σ))
         return ustrip(zero(coord_i[1])) * inter.energy_units
     end
 
@@ -173,7 +173,7 @@ end
     end
 end
 
-@fastmath function potential(::LennardJones, r2, invr2, (σ2, ϵ))
+function potential(::LennardJones, r2, invr2, (σ2, ϵ))
     six_term = (σ2 * invr2) ^ 3
 
     return 4ϵ * (six_term ^ 2 - six_term)
@@ -242,7 +242,7 @@ end
                                     weight_14::Bool=false) where {S, C}
     r2 = sum(abs2, dr)
 
-    if !S && (iszero(atom_i.ϵ) || iszero(atom_j.ϵ) || iszero(atom_i.σ) || iszero(atom_j.σ))
+    if !S && (iszero_value(atom_i.ϵ) || iszero_value(atom_j.ϵ) || iszero_value(atom_i.σ) || iszero_value(atom_j.σ))
         return ustrip.(zero(coord_i)) * inter.force_units
     end
 
@@ -282,7 +282,7 @@ end
     end
 end
 
-@fastmath function force_divr_nocutoff(::LennardJonesSoftCore, r2, invr2, (σ2, ϵ, σ6_fac))
+function force_divr_nocutoff(::LennardJonesSoftCore, r2, invr2, (σ2, ϵ, σ6_fac))
     inv_rsc6 = inv(r2^3 + σ2^3 * σ6_fac)  # rsc = (r2^3 + α * σ2^3 * λ^p)^(1/6)
     inv_rsc  = √cbrt(inv_rsc6)
     six_term = σ2^3 * inv_rsc6
@@ -304,7 +304,7 @@ end
                                             weight_14::Bool=false) where {S, C}
     r2 = sum(abs2, dr)
 
-    if !S && (iszero(atom_i.ϵ) || iszero(atom_j.ϵ) || iszero(atom_i.σ) || iszero(atom_j.σ))
+    if !S && (iszero_value(atom_i.ϵ) || iszero_value(atom_j.ϵ) || iszero_value(atom_i.σ) || iszero_value(atom_j.σ))
         return ustrip(zero(coord_i[1])) * inter.energy_units
     end
 
@@ -342,7 +342,7 @@ end
     end
 end
 
-@fastmath function potential(::LennardJonesSoftCore, r2, invr2, (σ2, ϵ, σ6_fac))
+function potential(::LennardJonesSoftCore, r2, invr2, (σ2, ϵ, σ6_fac))
     six_term = σ2^3 * inv(r2^3 + σ2^3 * σ6_fac)
 
     return 4ϵ * (six_term ^ 2 - six_term)

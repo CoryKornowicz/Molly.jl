@@ -18,11 +18,15 @@ Broadcasted form of `ustrip` from Unitful.jl, allowing e.g. `ustrip_vec.(coords)
 """
 ustrip_vec(x...) = ustrip.(x...)
 
-function check_force_units(fdr, force_units)
-    if unit(first(fdr)) != force_units
-        error("System force units are ", force_units, " but encountered force units ",
-                unit(first(fdr)))
+function check_force_units(force_units, sys_force_units)
+    if force_units != sys_force_units
+        error("System force units are ", sys_force_units, " but encountered force units ",
+              force_units)
     end
+end
+
+function check_force_units(fdr::AbstractArray, sys_force_units)
+    return check_force_units(unit(first(fdr)), sys_force_units)
 end
 
 """
@@ -132,7 +136,7 @@ general interactions.
 If the interactions use neighbor lists, the neighbors should be computed
 first and passed to the function.
 
-    forces(inter, system, neighbors=nothing)
+    forces(inter, system, neighbors=nothing; n_threads=Threads.nthreads())
 
 Calculate the forces on all atoms in the system arising from a general
 interaction.
@@ -145,7 +149,7 @@ function forces(s::System{D, false}, neighbors=nothing;
     fs = forces_pair_spec(s, neighbors, n_threads)
 
     for inter in values(s.general_inters)
-        fs += forces(inter, s, neighbors)
+        fs += forces(inter, s, neighbors; n_threads=n_threads)
     end
 
     return fs
@@ -168,18 +172,19 @@ end
 @inbounds function forces_pair_spec!(fs, coords, atoms, pairwise_inters_nonl, pairwise_inters_nl,
                                      sils_1_atoms, sils_2_atoms, sils_3_atoms, sils_4_atoms,
                                      boundary, force_units, neighbors, n_threads)
+    n_atoms = length(coords)
     if n_threads > 1
         fs_chunks = [zero(fs) for _ in 1:n_threads]
 
         if length(pairwise_inters_nonl) > 0
-            n_atoms = length(coords)
             Threads.@threads for thread_id in 1:n_threads
                 for i in thread_id:n_threads:n_atoms
                     for j in (i + 1):n_atoms
                         dr = vector(coords[i], coords[j], boundary)
-                        f = sum(pairwise_inters_nonl) do inter
-                            force(inter, dr, coords[i], coords[j], atoms[i],
-                                atoms[j], boundary)
+                        f = force(pairwise_inters_nonl[1], dr, coords[i], coords[j], atoms[i],
+                                  atoms[j], boundary)
+                        for inter in pairwise_inters_nonl[2:end]
+                            f += force(inter, dr, coords[i], coords[j], atoms[i], atoms[j], boundary)
                         end
                         check_force_units(f, force_units)
                         f_ustrip = ustrip.(f)
@@ -198,9 +203,11 @@ end
                 for ni in thread_id:n_threads:length(neighbors)
                     i, j, weight_14 = neighbors.list[ni]
                     dr = vector(coords[i], coords[j], boundary)
-                    f = sum(pairwise_inters_nl) do inter
-                        force(inter, dr, coords[i], coords[j], atoms[i],
+                    f = force(pairwise_inters_nl[1], dr, coords[i], coords[j], atoms[i],
                               atoms[j], boundary, weight_14)
+                    for inter in pairwise_inters_nl[2:end]
+                        f += force(inter, dr, coords[i], coords[j], atoms[i], atoms[j], boundary,
+                                   weight_14)
                     end
                     check_force_units(f, force_units)
                     f_ustrip = ustrip.(f)
@@ -213,13 +220,13 @@ end
         fs .+= sum(fs_chunks)
     else
         if length(pairwise_inters_nonl) > 0
-            n_atoms = length(coords)
             for i in 1:n_atoms
                 for j in (i + 1):n_atoms
                     dr = vector(coords[i], coords[j], boundary)
-                    f = sum(pairwise_inters_nonl) do inter
-                        force(inter, dr, coords[i], coords[j], atoms[i],
+                    f = force(pairwise_inters_nonl[1], dr, coords[i], coords[j], atoms[i],
                               atoms[j], boundary)
+                    for inter in pairwise_inters_nonl[2:end]
+                        f += force(inter, dr, coords[i], coords[j], atoms[i], atoms[j], boundary)
                     end
                     check_force_units(f, force_units)
                     f_ustrip = ustrip.(f)
@@ -236,9 +243,11 @@ end
             for ni in 1:length(neighbors)
                 i, j, weight_14 = neighbors.list[ni]
                 dr = vector(coords[i], coords[j], boundary)
-                f = sum(pairwise_inters_nl) do inter
-                    force(inter, dr, coords[i], coords[j], atoms[i],
-                        atoms[j], boundary, weight_14)
+                f = force(pairwise_inters_nl[1], dr, coords[i], coords[j], atoms[i],
+                          atoms[j], boundary, weight_14)
+                for inter in pairwise_inters_nl[2:end]
+                    f += force(inter, dr, coords[i], coords[j], atoms[i], atoms[j], boundary,
+                               weight_14)
                 end
                 check_force_units(f, force_units)
                 f_ustrip = ustrip.(f)
@@ -296,12 +305,6 @@ end
     return nothing
 end
 
-function cuda_threads_blocks(n_neighbors)
-    n_threads = 256
-    n_blocks = cld(n_neighbors, n_threads)
-    return n_threads, n_blocks
-end
-
 function forces(s::System{D, true, T}, neighbors=nothing;
                 n_threads::Integer=Threads.nthreads()) where {D, T}
     n_atoms = length(s)
@@ -311,10 +314,8 @@ function forces(s::System{D, true, T}, neighbors=nothing;
     pairwise_inters_nonl = filter(inter -> !inter.nl_only, values(s.pairwise_inters))
     if length(pairwise_inters_nonl) > 0
         nbs = NoNeighborList(n_atoms)
-        n_threads_gpu, n_blocks = cuda_threads_blocks(length(nbs))
-        CUDA.@sync @cuda threads=n_threads_gpu blocks=n_blocks pairwise_force_kernel!(
-                fs_mat, virial, s.coords, s.atoms, s.boundary, pairwise_inters_nonl,
-                nbs, Val(s.force_units), Val(n_threads_gpu))
+        fs_mat += pairwise_force_gpu(virial, s.coords, s.atoms, s.boundary,
+                                     pairwise_inters_nonl, nbs, s.force_units, Val(T))
     end
 
     pairwise_inters_nl = filter(inter -> inter.nl_only, values(s.pairwise_inters))
@@ -324,22 +325,21 @@ function forces(s::System{D, true, T}, neighbors=nothing;
         end
         if length(neighbors) > 0
             nbs = @view neighbors.list[1:neighbors.n]
-            n_threads_gpu, n_blocks = cuda_threads_blocks(length(neighbors))
-            CUDA.@sync @cuda threads=n_threads_gpu blocks=n_blocks pairwise_force_kernel!(
-                    fs_mat, virial, s.coords, s.atoms, s.boundary, pairwise_inters_nl,
-                    nbs, Val(s.force_units), Val(n_threads_gpu))
+            fs_mat += pairwise_force_gpu(virial, s.coords, s.atoms, s.boundary,
+                                         pairwise_inters_nl, nbs, s.force_units, Val(T))
         end
     end
 
     for inter_list in values(s.specific_inter_lists)
-        specific_force_kernel!(fs_mat, inter_list, s.coords, s.boundary, Val(s.force_units))
+        fs_mat += specific_force_gpu(inter_list, s.coords, s.boundary, s.force_units, Val(T))
     end
 
     fs = reinterpret(SVector{D, T}, vec(fs_mat))
 
     for inter in values(s.general_inters)
-        # Force type not checked
-        fs += ustrip_vec.(forces(inter, s, neighbors))
+        fs_gen = forces(inter, s, neighbors; n_threads=n_threads)
+        check_force_units(unit(eltype(eltype(fs_gen))), s.force_units)
+        fs += ustrip_vec.(fs_gen)
     end
 
     return fs * s.force_units

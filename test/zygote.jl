@@ -1,6 +1,6 @@
 @testset "Gradients" begin
     inter = LennardJones(force_units=NoUnits, energy_units=NoUnits)
-    boundary = CubicBoundary(5.0, 5.0, 5.0)
+    boundary = CubicBoundary(5.0)
     a1, a2 = Atom(σ=0.3, ϵ=0.5), Atom(σ=0.3, ϵ=0.5)
 
     function force_direct(dist)
@@ -25,7 +25,9 @@
     forces_direct = force_direct.(dists)
     forces_grad = force_grad.(dists)
     @test all(isapprox.(forces_direct, forces_grad))
+end
 
+@testset "Differentiable simulation" begin
     abs2_vec(x) = abs2.(x)
 
     # Function is strange in order to work with gradients on the GPU
@@ -41,7 +43,7 @@
         n_atoms = 50
         n_steps = 100
         atom_mass = f32 ? 10.0f0 : 10.0
-        boundary = f32 ? CubicBoundary(3.0f0, 3.0f0, 3.0f0) : CubicBoundary(3.0, 3.0, 3.0)
+        boundary = f32 ? CubicBoundary(3.0f0) : CubicBoundary(3.0)
         temp = f32 ? 1.0f0 : 1.0
         simulator = VelocityVerlet(
             dt=f32 ? 0.001f0 : 0.001,
@@ -75,7 +77,6 @@
             gpu ? CuArray(Int32.(collect( 1:15))) : Int32.(collect( 1:15)),
             gpu ? CuArray(Int32.(collect(16:30))) : Int32.(collect(16:30)),
             gpu ? CuArray(Int32.(collect(31:45))) : Int32.(collect(31:45)),
-            fill("", 15),
             gpu ? CuArray(angles_inner) : angles_inner,
         )
         torsions_inner = [PeriodicTorsion(
@@ -89,7 +90,6 @@
             gpu ? CuArray(Int32.(collect(11:20))) : Int32.(collect(11:20)),
             gpu ? CuArray(Int32.(collect(21:30))) : Int32.(collect(21:30)),
             gpu ? CuArray(Int32.(collect(31:40))) : Int32.(collect(31:40)),
-            fill("", 10),
             gpu ? CuArray(torsions_inner) : torsions_inner,
         )
         atoms_setup = [Atom(charge=f32 ? 0.0f0 : 0.0, σ=f32 ? 0.0f0 : 0.0) for i in 1:n_atoms]
@@ -97,7 +97,7 @@
             imp_obc2 = ImplicitSolventOBC(
                 gpu ? CuArray(atoms_setup) : atoms_setup,
                 [AtomData(element="O") for i in 1:n_atoms],
-                InteractionList2Atoms(bond_is, bond_js, [""], nothing);
+                InteractionList2Atoms(bond_is, bond_js, nothing);
                 use_OBC2=true,
             )
             general_inters = (imp_obc2,)
@@ -105,7 +105,7 @@
             imp_gbn2 = ImplicitSolventGBN2(
                 gpu ? CuArray(atoms_setup) : atoms_setup,
                 [AtomData(element="O") for i in 1:n_atoms],
-                InteractionList2Atoms(bond_is, bond_js, [""], nothing),
+                InteractionList2Atoms(bond_is, bond_js, nothing),
             )
             general_inters = (imp_gbn2,)
         else
@@ -128,7 +128,6 @@
             bonds = InteractionList2Atoms(
                 bond_is,
                 bond_js,
-                fill("", length(bonds_inner)),
                 gpu ? CuArray(bonds_inner) : bonds_inner,
             )
             cs = deepcopy(forward ? coords_dual : coords)
@@ -172,13 +171,11 @@
     end
     if run_gpu_tests #                        gpu    par    fwd    f32    pis    sis    obc2   gbn2
         push!(runs, ("GPU"                 , [true , false, false, false, true , true , false, false], 0.25, 20.0))
-        push!(runs, ("GPU forward"         , [true , false, true , false, true , true , false, false], 0.01, 0.01))
         push!(runs, ("GPU f32"             , [true , false, false, true , true , true , false, false], 0.5 , 50.0))
         push!(runs, ("GPU nospecific"      , [true , false, false, false, true , false, false, false], 0.25, 0.0 ))
         push!(runs, ("GPU nopairwise"      , [true , false, false, false, false, true , false, false], 0.0 , 10.0))
         push!(runs, ("GPU obc2"            , [true , false, false, false, true , true , true , false], 0.25, 20.0))
         push!(runs, ("GPU gbn2"            , [true , false, false, false, true , true , false, true ], 0.25, 20.0))
-        push!(runs, ("GPU gbn2 forward"    , [true , false, true , false, true , true , false, true ], 0.02, 0.02))
     end
 
     for (name, args, tol_σ, tol_r0) in runs
@@ -210,6 +207,9 @@
                 @info "$(rpad(name, 20)) - $(rpad(prefix, 2)) - FD $gfd, Zygote $gzy"
                 ztol = contains(name, "f32") ? 1e-8 : 1e-10
                 @test isnothing(gzy) || abs(gzy) < ztol
+            elseif isnothing(gzy)
+                @info "$(rpad(name, 20)) - $(rpad(prefix, 2)) - FD $gfd, Zygote $gzy"
+                @test !isnothing(gzy)
             else
                 frac_diff = abs(gzy - gfd) / abs(gfd)
                 @info "$(rpad(name, 20)) - $(rpad(prefix, 2)) - FD $gfd, Zygote $gzy, fractional difference $frac_diff"

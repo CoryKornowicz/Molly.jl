@@ -5,6 +5,9 @@
 using ForwardDiff: Chunk, Dual, dualize, partials, value
 using Zygote: unbroadcast
 
+iszero_value(x::Dual) = iszero(value(x))
+iszero_value(x) = iszero(x)
+
 Zygote.accum(x::AbstractArray{<:SizedVector}, ys::AbstractArray{<:SVector}...) = Zygote.accum.(convert(typeof(ys[1]), x), ys...)
 Zygote.accum(x::AbstractArray{<:SVector}, ys::AbstractArray{<:SizedVector}...) = Zygote.accum.(x, convert.(typeof(x), ys)...)
 
@@ -13,11 +16,18 @@ Zygote.accum(x::CuArray{<:SVector}, y::Vector{<:SVector} ) = Zygote.accum(x, CuA
 
 Zygote.accum(x::SVector{D, T}, y::T) where {D, T} = x .+ y
 
+Zygote.accum(u1::T, ::T) where {T <: Unitful.FreeUnits} = u1
+
 Base.:+(x::Real, y::SizedVector) = x .+ y
 Base.:+(x::SizedVector, y::Real) = x .+ y
 
 Base.:+(x::Real, y::Zygote.OneElement) = x .+ y
 Base.:+(x::Zygote.OneElement, y::Real) = x .+ y
+
+function Zygote.accum(x::CuArray{Atom{T, T, T, T}},
+                      y::Vector{NamedTuple{(:index, :charge, :mass, :σ, :ϵ, :solute)}}) where T
+    CuArray(Zygote.accum(Array(x), y))
+end
 
 function Base.:+(x::Atom{T, T, T, T}, y::Atom{T, T, T, T}) where T
     Atom{T, T, T, T}(0, x.charge + y.charge, x.mass + y.mass, x.σ + y.σ, x.ϵ + y.ϵ, false)
@@ -27,10 +37,22 @@ function Base.:-(x::Atom{T, T, T, T}, y::Atom{T, T, T, T}) where T
     Atom{T, T, T, T}(0, x.charge - y.charge, x.mass - y.mass, x.σ - y.σ, x.ϵ - y.ϵ, false)
 end
 
+function Base.:+(x::Atom{T, T, T, T}, y::NamedTuple{(:index, :charge, :mass, :σ, :ϵ, :solute),
+                    Tuple{Int, C, M, S, E, Bool}}) where {T, C, M, S, E}
+    Atom{T, T, T, T}(
+        0,
+        Zygote.accum(x.charge, y.charge),
+        Zygote.accum(x.mass, y.mass),
+        Zygote.accum(x.σ, y.σ),
+        Zygote.accum(x.ϵ, y.ϵ),
+        false,
+    )
+end
+
 function Base.:+(r::Base.RefValue{Any}, y::NamedTuple{(:atoms, :atoms_data, :masses,
                  :pairwise_inters, :specific_inter_lists, :general_inters, :constraints,
                  :coords, :velocities, :boundary, :neighbor_finder, :loggers, :force_units,
-                 :energy_units, :k)}) where {D, T}
+                 :energy_units, :k)})
     x = r.x
     (
         atoms=Zygote.accum(x.atoms, y.atoms),
@@ -54,27 +76,26 @@ end
 function Base.:+(y::NamedTuple{(:atoms, :atoms_data, :masses,
                  :pairwise_inters, :specific_inter_lists, :general_inters, :constraints,
                  :coords, :velocities, :boundary, :neighbor_finder, :loggers, :force_units,
-                 :energy_units, :k)}, r::Base.RefValue{Any}) where {D, T}
+                 :energy_units, :k)}, r::Base.RefValue{Any})
     return r + y
 end
 
 function Zygote.accum(x::NamedTuple{(:side_lengths,), Tuple{SizedVector{3, T, Vector{T}}}}, y::SVector{3, T}) where T
-    CubicBoundary(x.side_lengths .+ y)
+    CubicBoundary(SVector{3, T}(x.side_lengths .+ y))
 end
 
 function Zygote.accum(x::NamedTuple{(:side_lengths,), Tuple{SizedVector{2, T, Vector{T}}}}, y::SVector{2, T}) where T
-    RectangularBoundary(x.side_lengths .+ y)
+    RectangularBoundary(SVector{2, T}(x.side_lengths .+ y))
 end
 
 function Base.:+(x::NamedTuple{(:side_lengths,), Tuple{SizedVector{3, T, Vector{T}}}}, y::CubicBoundary{T}) where T
-    CubicBoundary(x.side_lengths .+ y.side_lengths)
+    CubicBoundary(SVector{3, T}(x.side_lengths .+ y.side_lengths))
 end
 
 function Base.:+(x::NamedTuple{(:side_lengths,), Tuple{SizedVector{2, T, Vector{T}}}}, y::RectangularBoundary{T}) where T
-    RectangularBoundary(x.side_lengths .+ y.side_lengths)
+    RectangularBoundary(SVector{2, T}(x.side_lengths .+ y.side_lengths))
 end
 
-Base.zero(::Type{Atom{T, T, T, T}}) where {T} = Atom(0, zero(T), zero(T), zero(T), zero(T), false)
 atom_or_empty(at::Atom, T) = at
 atom_or_empty(at::Nothing, T) = zero(Atom{T, T, T, T})
 

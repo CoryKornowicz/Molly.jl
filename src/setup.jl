@@ -40,17 +40,19 @@ function place_atoms(n_atoms::Integer,
     while length(coords) < n_atoms
         new_coord = rand_coord(boundary)
         okay = true
-        for coord in coords
-            if sum(abs2, vector(coord, new_coord, boundary)) < min_dist_sq
-                okay = false
-                failed_attempts += 1
-                break
+        if min_dist > zero(min_dist)
+            for coord in coords
+                if sum(abs2, vector(coord, new_coord, boundary)) < min_dist_sq
+                    okay = false
+                    failed_attempts += 1
+                    break
+                end
             end
         end
         if okay
             push!(coords, new_coord)
             failed_attempts = 0
-        elseif failed_attempts > max_attempts
+        elseif failed_attempts >= max_attempts
             error("Failed to place atom $(length(coords) + 1) after $max_attempts (max_attempts) tries")
         end
     end
@@ -96,19 +98,21 @@ function place_diatomics(n_molecules::Integer,
         end
         new_coord_b = copy(new_coord_a) + shift
         okay = true
-        for coord in coords
-            if sum(abs2, vector(coord, new_coord_a, boundary)) < min_dist_sq ||
-                    sum(abs2, vector(coord, new_coord_b, boundary)) < min_dist_sq
-                okay = false
-                failed_attempts += 1
-                break
+        if min_dist > zero(min_dist)
+            for coord in coords
+                if sum(abs2, vector(coord, new_coord_a, boundary)) < min_dist_sq ||
+                        sum(abs2, vector(coord, new_coord_b, boundary)) < min_dist_sq
+                    okay = false
+                    failed_attempts += 1
+                    break
+                end
             end
         end
         if okay
             push!(coords, new_coord_a)
             push!(coords, new_coord_b)
             failed_attempts = 0
-        elseif failed_attempts > max_attempts
+        elseif failed_attempts >= max_attempts
             error("Failed to place atom $(length(coords) + 1) after $max_attempts (max_attempts) tries")
         end
     end
@@ -720,8 +724,8 @@ function System(coord_file::AbstractString,
         push!(specific_inter_array, InteractionList2Atoms(
             gpu ? CuArray(bonds.is) : bonds.is,
             gpu ? CuArray(bonds.js) : bonds.js,
-            bonds.types,
             gpu ? CuArray([bonds.inters...]) : [bonds.inters...],
+            bonds.types,
         ))
     end
     if length(angles.is) > 0
@@ -729,8 +733,8 @@ function System(coord_file::AbstractString,
             gpu ? CuArray(angles.is) : angles.is,
             gpu ? CuArray(angles.js) : angles.js,
             gpu ? CuArray(angles.ks) : angles.ks,
-            angles.types,
             gpu ? CuArray([angles.inters...]) : [angles.inters...],
+            angles.types,
         ))
     end
     if length(torsions.is) > 0
@@ -739,8 +743,8 @@ function System(coord_file::AbstractString,
             gpu ? CuArray(torsions.js) : torsions.js,
             gpu ? CuArray(torsions.ks) : torsions.ks,
             gpu ? CuArray(torsions.ls) : torsions.ls,
-            torsions.types,
             gpu ? CuArray(torsion_inters_pad) : torsion_inters_pad,
+            torsions.types,
         ))
     end
     if length(impropers.is) > 0
@@ -749,8 +753,8 @@ function System(coord_file::AbstractString,
             gpu ? CuArray(impropers.js) : impropers.js,
             gpu ? CuArray(impropers.ks) : impropers.ks,
             gpu ? CuArray(impropers.ls) : impropers.ls,
-            impropers.types,
             gpu ? CuArray(improper_inters_pad) : improper_inters_pad,
+            impropers.types,
         ))
     end
     specific_inter_lists = tuple(specific_inter_array...)
@@ -1118,8 +1122,8 @@ function System(T::Type,
         push!(specific_inter_array, InteractionList2Atoms(
             gpu ? CuArray(bonds.is) : bonds.is,
             gpu ? CuArray(bonds.js) : bonds.js,
-            bonds.types,
             gpu ? CuArray([bonds.inters...]) : [bonds.inters...],
+            bonds.types,
         ))
     end
     if length(angles.is) > 0
@@ -1127,8 +1131,8 @@ function System(T::Type,
             gpu ? CuArray(angles.is) : angles.is,
             gpu ? CuArray(angles.js) : angles.js,
             gpu ? CuArray(angles.ks) : angles.ks,
-            angles.types,
             gpu ? CuArray([angles.inters...]) : [angles.inters...],
+            angles.types,
         ))
     end
     if length(torsions.is) > 0
@@ -1137,8 +1141,8 @@ function System(T::Type,
             gpu ? CuArray(torsions.js) : torsions.js,
             gpu ? CuArray(torsions.ks) : torsions.ks,
             gpu ? CuArray(torsions.ls) : torsions.ls,
-            torsions.types,
             gpu ? CuArray([torsions.inters...]) : [torsions.inters...],
+            torsions.types,
         ))
     end
     specific_inter_lists = tuple(specific_inter_array...)
@@ -1247,7 +1251,7 @@ function add_position_restraints(sys,
             push!(inters, HarmonicPositionRestraint(k_res, x0))
         end
     end
-    restraints = InteractionList1Atoms(move_array(is, sys), types, move_array([inters...], sys))
+    restraints = InteractionList1Atoms(move_array(is, sys), move_array([inters...], sys), types)
     sis = (sys.specific_inter_lists..., restraints)
     return System(
         atoms=deepcopy(sys.atoms),
